@@ -67,9 +67,12 @@ export default class ICSPlugin extends Plugin {
     ].filter(Boolean).join(' ').trim();
   }
 
-  async getEvents(date: string): Promise<IEvent[]> {
+  async getEvents(date: string, upcomingDays?: number): Promise<IEvent[]> {
+    console.clear();
     let events: IEvent[] = [];
     let errorMessages: string[] = []; // To store error messages
+
+    if (!upcomingDays) upcomingDays = 0;
 
     for (const calendar in this.data.calendars) {
       const calendarSetting = this.data.calendars[calendar];
@@ -92,11 +95,11 @@ export default class ICSPlugin extends Plugin {
         errorMessages.push(`Error processing calendar "${calendarSetting.icsName}"`);
       }
 
-      var dateEvents;
+      let dateEvents;
 
       // Exception handling for parsing and filtering
       try {
-        dateEvents = filterMatchingEvents(icsArray, date, calendarSetting.format.showOngoing);
+        dateEvents = filterMatchingEvents(icsArray, date, upcomingDays, calendarSetting.format.showOngoing);
 
       } catch (filterError) {
         console.error(`Error filtering events for calendar ${calendarSetting.icsName}: ${filterError}`);

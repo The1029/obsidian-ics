@@ -38,17 +38,19 @@ function adjustDateToOriginalTimezone(originalDate: Date, currentDate: Date, tzi
   return momentCurrent.add(hourOffset, 'hours').add(minuteOffset, 'minutes').toDate();
 }
 
-export function filterMatchingEvents(icsArray: any[], dayToMatch: string, showOngoing: boolean) {
+export function filterMatchingEvents(icsArray: any[], dayToMatch: string, upcomingDays: number, showOngoing: boolean) {
+  const firstDate = moment(dayToMatch);
+  const lastDate = moment(dayToMatch).add(upcomingDays, 'days');
 
   return icsArray.reduce((matchingEvents, event) => {
-    var hasRecurrenceOverride = false
+    let hasRecurrenceOverride = false
     if (event.recurrences !== undefined) {
       for (let date in event.recurrences) {
-        if (moment(date).isSame(dayToMatch, "day")) {
+        if (moment(date).isBetween(firstDate, lastDate)) {
           hasRecurrenceOverride = true;
         }
         const recurrence = event.recurrences[date];
-        if (moment(recurrence.start).isSame(dayToMatch, "day")) {
+        if (moment(recurrence.start).isBetween(firstDate, lastDate)) {
           matchingEvents.push(recurrence);
           hasRecurrenceOverride = true;
         }
@@ -56,8 +58,8 @@ export function filterMatchingEvents(icsArray: any[], dayToMatch: string, showOn
     }
     if (typeof event.rrule !== 'undefined' && !hasRecurrenceOverride) {
       // Fetch events from yesterday to tomorrow
-      const localStartOfYesterday = moment(dayToMatch).subtract(1, 'day').startOf('day').toDate();
-      const localEndOfTomorrow = moment(dayToMatch).add(1, 'day').endOf('day').toDate();
+      const localStartOfYesterday = moment(firstDate).subtract(1, 'day').startOf('day').toDate();
+      const localEndOfTomorrow = moment(lastDate).add(1, 'day').endOf('day').toDate();
 
       event.rrule.between(localStartOfYesterday, localEndOfTomorrow).forEach(date => {
 
@@ -67,7 +69,7 @@ export function filterMatchingEvents(icsArray: any[], dayToMatch: string, showOn
 
         // We need to clone the event and override the date
         const clonedEvent = { ...event };
-
+        
         console.debug('Found a recurring event to clone: ', event.summary, ' on ', date, 'at ', event.start.toString());
 
         // But timezones...
@@ -88,7 +90,7 @@ export function filterMatchingEvents(icsArray: any[], dayToMatch: string, showOn
 
         // Check if the event is really during 'today' in the local timezone
         const eventStartLocal = moment(clonedEvent.start);
-        if (eventStartLocal.isSame(dayToMatch, 'day')) {
+        if (eventStartLocal.isBetween(firstDate, lastDate, "day", "[]")) {
           console.debug("Cloned event:", {
             ...clonedEvent,
             start: clonedEvent.start.toString(),
@@ -99,7 +101,7 @@ export function filterMatchingEvents(icsArray: any[], dayToMatch: string, showOn
         }
       });
     } else if (!hasRecurrenceOverride) {
-      if (moment(event.start).isSame(dayToMatch, "day")) {
+      if (moment(event.start).isBetween(firstDate, lastDate, "day", "[]")) {
         matchingEvents.push(event);
       }
     }
